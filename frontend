@@ -1,1 +1,48 @@
+# Spatial placement algorithm using 3D bin packing with priority optimization
+def optimize_placement(items, containers):
+    from typing import List, Dict, Tuple
+    import numpy as np
+    
+    class Container3D:
+        def __init__(self, container_id, dimensions, zone):
+            self.id = container_id
+            self.dims = np.array(dimensions)
+            self.zone = zone
+            self.items = []
+            self.available_space = [((0,0,0), self.dims)]
 
+    def pack_items(items: List, containers: List[Container3D]) -> Dict:
+        # Sort items by priority then volume
+        sorted_items = sorted(items, 
+                           key=lambda x: (-x['priority'], x['width']*x['depth']*x['height']))
+        
+        # Sort containers by zone preference match
+        containers = sorted(containers, 
+                          key=lambda c: -sum(1 for i in items if i['preferredZone'] == c.zone))
+        
+        for item in sorted_items:
+            placed = False
+            for container in containers:
+                if container.zone != item['preferredZone']:
+                    continue  # Try preferred zone first
+                
+                # Try all rotations
+                for rotation in generate_rotations(item):
+                    if try_place(container, rotation):
+                        placed = True
+                        break
+                if placed: break
+            
+            if not placed:
+                # Fallback to other containers
+                for container in containers:
+                    for rotation in generate_rotations(item):
+                        if try_place(container, rotation):
+                            placed = True
+                            break
+                    if placed: break
+            
+            if not placed:
+                initiate_rearrangement(item, containers)
+        
+        return generate_placement_report(containers)
